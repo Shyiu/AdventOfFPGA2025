@@ -1,6 +1,6 @@
 open! Core
 open! Hardcaml
-open! Hardcaml_demo_project
+open! Sample
 
 let generate_range_finder_rtl () =
   let module C = Circuit.With_interface (Range_finder.I) (Range_finder.O) in
