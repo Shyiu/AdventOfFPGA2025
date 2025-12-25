@@ -69,7 +69,7 @@ let waves_config =
 let%expect_test "Simple test, optionally saving waveforms to disk" =
   Harness.run_advanced ~waves_config ~create:Part1.hierarchical simple_testbench;
   [%expect {|
-    (Result (output 1100))
+    (Result (output 6))
     Saved waves to /tmp/test_day01_part1_ml_Simple_test__optionally_saving_waveforms_to_disk.vcd
     |}]
 ;;
@@ -100,5 +100,5 @@ let%expect_test "Simple test with printing waveforms directly" =
         waves)
     simple_testbench;
   [%expect
-    {| (Result (output 1100)) |}]
+    {| (Result (output 6)) |}]
 ;;

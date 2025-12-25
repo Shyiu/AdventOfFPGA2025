@@ -60,21 +60,40 @@ let create scope ({ clock; clear; start; finish; data_in; data_in_valid } : _ I.
  let%hw_var password = Variable.reg spec ~width:num_bits in
  let out_valid = Variable.wire ~default:gnd () in
 
+ let%hw new_pos_val = (cur_pos.value +: data_in +: of_unsigned_int ~width:num_bits 1000) in (* Add 1000 to make sure all positions values are positive for Barret Reduction*)
+ let%hw est_quotient = srl (new_pos_val *: (of_unsigned_int ~width:32 83887)) ~by:23 in (*Barret Reduction to take modulo 100 of answer using k = 23*)
+ let%hw est_remainder = new_pos_val -: uresize ~width:num_bits (est_quotient *: of_unsigned_int ~width:num_bits 100) in
 
- let cur_pos_val = cur_pos.value in
- let%hw new_pos_val = (cur_pos_val +: data_in +: of_unsigned_int ~width:num_bits 1000) in (* Add 1000 to make sure all positions values are positive for Barret Reduction*)
- let%hw quotient = srl (new_pos_val *: (of_unsigned_int ~width:32 83887)) ~by:23 in (*Barret Reduction to take modulo 100 of answer using k = 23*)
- let%hw est_remainder = new_pos_val -: uresize ~width:num_bits (quotient *: of_unsigned_int ~width:num_bits 100) in
- let%hw need_correction = est_remainder >: (of_unsigned_int ~width:num_bits 99) in
- let%hw remainder = mux2 need_correction (est_remainder -: of_unsigned_int ~width:num_bits 100) est_remainder in
- let%hw corrected_quotient = mux2 need_correction 
-      ((uresize ~width:num_bits quotient) -: of_unsigned_int ~width:num_bits 11) 
-      (uresize ~width:num_bits quotient -: of_unsigned_int ~width:num_bits 10) 
+ let%hw need_correction = est_remainder >: (of_unsigned_int ~width:num_bits 99) in (*Accounts for if the reduction was off-by-one*)
+ 
+ let%hw corrected_remainder = mux2 need_correction 
+      (est_remainder -: of_unsigned_int ~width:num_bits 100) 
+      est_remainder 
  in
- let%hw corrected_password = mux2 (corrected_quotient <+ (of_unsigned_int ~width:num_bits 0))
+
+ let%hw corrected_quotient = mux2 need_correction 
+      ((uresize ~width:num_bits est_quotient) -: of_unsigned_int ~width:num_bits 11) 
+      (uresize ~width:num_bits est_quotient -: of_unsigned_int ~width:num_bits 10) 
+ in
+
+ let%hw pos_quotient = mux2 (corrected_quotient <+ (of_unsigned_int ~width:num_bits 0))
       (uresize ~width:num_bits (corrected_quotient *+ of_signed_int ~width:num_bits (-1))) 
       corrected_quotient 
  in
+
+ let%hw at_zero = corrected_remainder ==: of_unsigned_int ~width:num_bits 0 in
+
+ let%hw corrective_factor1 = mux2 (at_zero &: (corrected_quotient >: of_unsigned_int ~width:num_bits 0)) (*Accounts for double count of going right to zero*)
+      (of_signed_int ~width:num_bits (-1))
+      (of_unsigned_int ~width:num_bits 0)
+ in
+
+ let%hw corrective_factor2 = mux2 ((cur_pos.value ==: of_unsigned_int ~width:num_bits 0) &: (corrected_quotient <+ of_unsigned_int ~width:num_bits 0)) (*Accounts for double count of going left from zero*)
+      (of_signed_int ~width:num_bits (-1))
+      (of_unsigned_int ~width:num_bits 0)
+ in
+
+ let%hw final_shift = pos_quotient +: corrective_factor1 +: corrective_factor2 in
 
  compile
    [ sm.switch
@@ -89,11 +108,11 @@ let create scope ({ clock; clear; start; finish; data_in; data_in_valid } : _ I.
        ; ( Accepting_inputs
          , [ when_
                data_in_valid
-               [ cur_pos <-- remainder
+               [ cur_pos <-- corrected_remainder
                ;  if_
-                     (remainder ==: (of_unsigned_int ~width:num_bits 0))
-                     [ password <-- password.value +: corrected_password +: (of_unsigned_int ~width:num_bits 1) ]
-                     [ password <-- password.value +: corrected_password ]
+                     (at_zero)
+                     [ password <-- password.value +: final_shift +: (of_unsigned_int ~width:num_bits 1) ]
+                     [ password <-- password.value +: final_shift ]
                ]
            ; when_ finish [ sm.set_next Done ]
            ] )
