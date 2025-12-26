@@ -4,8 +4,8 @@ open! Hardcaml
 open! Hardcaml_waveterm
 open! Hardcaml_test_harness
 
-module Part1 = Day01.Day01_part2
-module Harness = Cyclesim_harness.Make (Part1.I) (Part1.O)
+module DUT = Day01.Day01_part2
+module Harness = Cyclesim_harness.Make (DUT.I) (DUT.O)
 
 let ( <--. ) = Bits.( <--. )
 
@@ -67,10 +67,10 @@ let waves_config =
 ;;
 
 let%expect_test "Simple test, optionally saving waveforms to disk" =
-  Harness.run_advanced ~waves_config ~create:Part1.hierarchical simple_testbench;
+  Harness.run_advanced ~waves_config ~create:DUT.hierarchical simple_testbench;
   [%expect {|
-    (Result (output 6))
-    Saved waves to /tmp/test_day01_part1_ml_Simple_test__optionally_saving_waveforms_to_disk.vcd
+    (Result (output 6358))
+    Saved waves to /tmp/test_day01_ml_Simple_test__optionally_saving_waveforms_to_disk.vcd
     |}]
 ;;
 
@@ -82,11 +82,11 @@ let%expect_test "Simple test with printing waveforms directly" =
   let display_rules =
     [ Display_rule.port_name_matches
         ~wave_format:(Bit_or Unsigned_int)
-        (Re.Glob.glob "Part1*" |> Re.compile)
+        (Re.Glob.glob "DUT*" |> Re.compile)
     ]
   in
   Harness.run_advanced
-    ~create:Part1.hierarchical
+    ~create:DUT.hierarchical
     ~trace:`All_named
     ~print_waves_after_test:(fun waves ->
       Waveform.print
@@ -100,5 +100,5 @@ let%expect_test "Simple test with printing waveforms directly" =
         waves)
     simple_testbench;
   [%expect
-    {| (Result (output 6)) |}]
+    {| (Result (output 6358)) |}]
 ;;
