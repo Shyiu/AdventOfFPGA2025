@@ -1,0 +1,8 @@
+(library
+ (name test_day02)
+ (libraries core stdio hardcaml day02 hardcaml_test_harness
+   hardcaml_waveterm re)
+ (preprocess
+  (pps ppx_hardcaml ppx_jane))
+ (inline_tests
+  (deps day02.txt)))

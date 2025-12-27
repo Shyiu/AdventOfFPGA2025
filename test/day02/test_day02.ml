@@ -4,7 +4,7 @@ open! Hardcaml
 open! Hardcaml_waveterm
 open! Hardcaml_test_harness
 
-module DUT = Day01.Day01_part2
+module DUT = Day02.Day02_part1
 module Harness = Cyclesim_harness.Make (DUT.I) (DUT.O)
 
 let ( <--. ) = Bits.( <--. )
